@@ -1,0 +1,101 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+  // previewFeatures = ["referentialActions"]
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model Purpose {
+  id          String   @id
+  description String
+  Kardex      Kardex[]
+}
+
+model DocumentType {
+  id          String   @id
+  description String
+  Kardex      Kardex[]
+}
+
+model Store {
+  id          String   @id
+  description String
+  from        Kardex[] @relation(name: "fromStore")
+  fromVirtual Kardex[] @relation(name: "fromVirtualStore")
+  to          Kardex[] @relation(name: "toStore")
+  toVirtual   Kardex[] @relation(name: "toVirtualStore")
+}
+
+// ----
+// product keep track of the current price/amount/cost
+model Product {
+  id           String         @id
+  description  String
+  barCode      String?
+  sigaCode     String?
+  amount       Int            @default(0)
+  price        Float          @default(0)
+  KardexDetail KardexDetail[]
+  totalCost    Float          @default(0)
+  Stock        Stock[]
+  version      Int            @default(0) //handle concurrency/collision
+}
+
+//----
+// stock keep track of the historical price/amount
+// and current amount/count of each item
+model Stock {
+  id            Int      @id @default(autoincrement())
+  originalCount Int      @default(0)
+  currentCount  Int      @default(0) // will change according to movements sales
+  lote          String
+  dueDate       DateTime
+  price         Float
+
+  Product   Product? @relation(fields: [productId], references: [id])
+  productId String?
+}
+
+//---
+// kardex keep track of the documents for purchases or sales
+model Kardex {
+  id                 Int            @id @default(autoincrement())
+  fromStore          Store          @relation(name: "fromStore", fields: [fromStoreId], references: [id])
+  fromStoreId        String
+  fromVirtualStore   Store          @relation(name: "fromVirtualStore", fields: [fromVirtualStoreId], references: [id])
+  fromVirtualStoreId String
+  toStore            Store          @relation(name: "toStore", fields: [toStoreId], references: [id])
+  toStoreId          String
+  toVirtualStore     Store          @relation(name: "toVirtualStore", fields: [toVirtualStoreId], references: [id])
+  toVirtualStoreId   String
+  purpose            Purpose        @relation(fields: [purposeId], references: [id])
+  purposeId          String
+  documentType       DocumentType   @relation(fields: [documentTypeId], references: [id])
+  documentTypeId     String
+  documentNumber     String
+  documentDate       DateTime       @default(now())
+  receptionDate      DateTime?
+  reference          String?
+  isSale             Boolean        @default(true)
+  createdAt          DateTime       @default(now())
+  updatedAt          DateTime       @updatedAt
+  KardexDetail       KardexDetail[]
+}
+
+model KardexDetail {
+  id        Int       @id @default(autoincrement())
+  kardex    Kardex    @relation(fields: [kardexId], references: [id], onDelete: Cascade)
+  kardexId  Int
+  product   Product   @relation(fields: [productId], references: [id])
+  productId String
+  amount    Int
+  lote      String? // only required on purchases
+  dueDate   DateTime? // only required on purchases
+  price     Float
+}
