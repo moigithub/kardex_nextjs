@@ -55,8 +55,14 @@ async function getPurposes() {
 
   return res.json()
 }
-async function getProducts() {
-  const res = await fetch('/api/products')
+async function getProducts(filter?: any) {
+  const searchParams = new URLSearchParams()
+  searchParams.append('sigaCode', filter?.sigaCode || '')
+  searchParams.append('barCode', filter?.barCode || '')
+  searchParams.append('productCode', filter?.productCode || '')
+  searchParams.append('description', filter?.description || '')
+
+  const res = await fetch(`/api/products?${searchParams.toString()}`)
 
   return res.json()
 }
@@ -85,7 +91,6 @@ export default function Kardex() {
   const [documentTypes, setDocumentTypes] = useState<DocumentType[]>([])
   const [stores, setStores] = useState<Store[]>([])
   const [purposes, setPurposes] = useState<Purpose[]>([])
-  const [products, setProducts] = useState<Product[]>([])
   const {
     control,
     register,
@@ -105,11 +110,11 @@ export default function Kardex() {
       //   // documentDate: format(new Date(), 'yyyy-MM-dd'),
       //   // receptionDate: format(new Date(), 'yyyy-MM-dd'),
       //   reference: '',
-      isSale: false
+      isSale: false,
       //   createdAt: new Date(),
-      //   items: [
-      //     // { description: '', productCode: '', amount: 0, lote: '', price: 0, dueDate: new Date() }
-      //   ]
+      items: [
+        //     // { description: '', productCode: '', amount: 0, lote: '', price: 0, dueDate: new Date() }
+      ]
     }
   })
 
@@ -132,9 +137,6 @@ export default function Kardex() {
 
       const purposeResponse = await getPurposes()
       setPurposes(purposeResponse.data)
-
-      const productResponse = await getProducts()
-      setProducts(productResponse.data)
     }
     getData()
   }, [])
@@ -493,73 +495,126 @@ export default function Kardex() {
         </form>
       </div>
 
-      <section className='p-4 border-2 border-green-600 mt-4    '>
-        <h3>Product search</h3>
-        <div className='mt-4 grid grid-cols-1 gap-2 md:grid-cols-3 md:gap-4 '>
-          <div className='block '>
-            <label className='mr-2 text-black-200 text-sm  ' htmlFor='barCode'>
-              barCode
-            </label>
-            <input className='w-full py-1 pl-3 pr-10 rounded-md bg-white  text-base shadow-lg ring-1 ring-black ring-opacity-5' />
-          </div>
+      <ProductSearch addKardexItem={addKardexItem} />
+    </section>
+  )
+}
 
-          <div className='block '>
-            <label className='mr-2 text-black-200 text-sm  ' htmlFor='sigaCode'>
-              sigaCode
-            </label>
-            <input className='w-full py-1 pl-3 pr-10 rounded-md bg-white  text-base shadow-lg ring-1 ring-black ring-opacity-5' />
-          </div>
+const ProductSearch = ({ addKardexItem }: { addKardexItem: (product: Product) => void }) => {
+  const [products, setProducts] = useState<Product[]>([])
 
-          <div className='block '>
-            <label className='mr-2 text-black-200 text-sm  ' htmlFor='productCode'>
-              productCode
-            </label>
-            <input className='w-full py-1 pl-3 pr-10 rounded-md bg-white  text-base shadow-lg ring-1 ring-black ring-opacity-5' />
-          </div>
-        </div>
+  useEffect(() => {
+    async function getData() {
+      const productResponse = await getProducts()
+      setProducts(productResponse.data)
+    }
+    getData()
+  }, [])
 
-        <div className='block mb-4'>
-          <label className='mr-2 text-black-200 text-sm  ' htmlFor='description'>
-            description
+  const { register, watch, reset } = useForm<KardexFormData>()
+
+  useEffect(() => {
+    let timerHandler: NodeJS.Timeout
+    async function getData(value: any) {
+      const productResponse = await getProducts(value)
+      setProducts(productResponse.data)
+    }
+
+    const subscription = watch((value, { name, type }) => {
+      console.log(value, name, type)
+      if (timerHandler) {
+        clearTimeout(timerHandler)
+      }
+      timerHandler = setTimeout(() => {
+        getData(value)
+      }, 300)
+    })
+
+    return () => {
+      clearTimeout(timerHandler)
+      subscription.unsubscribe()
+    }
+  }, [watch])
+
+  return (
+    <section className='p-4 border-2 border-green-600 mt-4    '>
+      <h3>Product search</h3>
+      <div className='mt-4 grid grid-cols-1 gap-2 md:grid-cols-3 md:gap-4 '>
+        <div className='block '>
+          <label className='mr-2 text-black-200 text-sm  ' htmlFor='barCode'>
+            barCode
           </label>
-          <input className='w-full py-1 pl-3 pr-10 rounded-md bg-white  text-base shadow-lg ring-1 ring-black ring-opacity-5' />
+          <input
+            className='w-full py-1 pl-3 pr-10 rounded-md bg-white  text-base shadow-lg ring-1 ring-black ring-opacity-5'
+            {...register('barCode')}
+          />
         </div>
-        <TableContainer component={Paper} sx={{ minWidth: 500, maxHeight: 440 }}>
-          <Table stickyHeader>
-            <TableHead>
-              <TableRow>
-                <TableCell align='left'>Descripcion</TableCell>
-                <TableCell align='left'>Precio</TableCell>
-                <TableCell align='left'>Stock</TableCell>
-                <TableCell> </TableCell>
+
+        <div className='block '>
+          <label className='mr-2 text-black-200 text-sm  ' htmlFor='sigaCode'>
+            sigaCode
+          </label>
+          <input
+            className='w-full py-1 pl-3 pr-10 rounded-md bg-white  text-base shadow-lg ring-1 ring-black ring-opacity-5'
+            {...register('sigaCode')}
+          />
+        </div>
+
+        <div className='block '>
+          <label className='mr-2 text-black-200 text-sm  ' htmlFor='productCode'>
+            productCode
+          </label>
+          <input
+            className='w-full py-1 pl-3 pr-10 rounded-md bg-white  text-base shadow-lg ring-1 ring-black ring-opacity-5'
+            {...register('productCode')}
+          />
+        </div>
+      </div>
+
+      <div className='block mb-4'>
+        <label className='mr-2 text-black-200 text-sm  ' htmlFor='description'>
+          description
+        </label>
+        <input
+          className='w-full py-1 pl-3 pr-10 rounded-md bg-white  text-base shadow-lg ring-1 ring-black ring-opacity-5'
+          {...register('description')}
+        />
+      </div>
+      <TableContainer component={Paper} sx={{ minWidth: 500, maxHeight: 440 }}>
+        <Table stickyHeader>
+          <TableHead>
+            <TableRow>
+              <TableCell align='left'>Descripcion</TableCell>
+              <TableCell align='left'>Precio</TableCell>
+              <TableCell align='left'>Stock</TableCell>
+              <TableCell> </TableCell>
+            </TableRow>
+          </TableHead>
+          <TableBody>
+            {products.map(product => (
+              <TableRow key={product.id}>
+                <TableCell component='th' scope='product'>
+                  {product.description}
+                </TableCell>
+                <TableCell component='th' scope='product'>
+                  {product.price.toFixed(2)}
+                </TableCell>
+                <TableCell style={{ width: 160 }} align='right'>
+                  {product.amount}
+                </TableCell>
+                <TableCell style={{ width: 160 }} align='right'>
+                  <button
+                    onClick={() => addKardexItem(product)}
+                    className='cursor-pointer rounded-md bg-green-800 py-1 px-3 text-center text-white shadow-sm text-sm'
+                  >
+                    +
+                  </button>
+                </TableCell>
               </TableRow>
-            </TableHead>
-            <TableBody>
-              {products.map(product => (
-                <TableRow key={product.id}>
-                  <TableCell component='th' scope='product'>
-                    {product.description}
-                  </TableCell>
-                  <TableCell component='th' scope='product'>
-                    {product.price.toFixed(2)}
-                  </TableCell>
-                  <TableCell style={{ width: 160 }} align='right'>
-                    {product.amount}
-                  </TableCell>
-                  <TableCell style={{ width: 160 }} align='right'>
-                    <button
-                      onClick={() => addKardexItem(product)}
-                      className='cursor-pointer rounded-md bg-green-800 py-1 px-3 text-center text-white shadow-sm text-sm'
-                    >
-                      +
-                    </button>
-                  </TableCell>
-                </TableRow>
-              ))}
-            </TableBody>
-          </Table>
-        </TableContainer>
-      </section>
+            ))}
+          </TableBody>
+        </Table>
+      </TableContainer>
     </section>
   )
 }
