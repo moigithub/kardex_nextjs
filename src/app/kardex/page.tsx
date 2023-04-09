@@ -10,6 +10,8 @@ import TableHead from '@mui/material/TableHead'
 import TableRow from '@mui/material/TableRow'
 import { useEffect, useState } from 'react'
 import { format } from 'date-fns'
+import { useSession } from 'next-auth/react'
+import { useRouter } from 'next/navigation'
 
 type KardexItem = {
   sigaCode?: string
@@ -88,6 +90,8 @@ interface Product {
   price: number
 }
 export default function Kardex() {
+  const router = useRouter()
+  const { data: session } = useSession()
   const [documentTypes, setDocumentTypes] = useState<DocumentType[]>([])
   const [stores, setStores] = useState<Store[]>([])
   const [purposes, setPurposes] = useState<Purpose[]>([])
@@ -177,6 +181,10 @@ export default function Kardex() {
     } else {
       //redirect
     }
+  }
+
+  if (!session) {
+    router.push('/')
   }
 
   return (
